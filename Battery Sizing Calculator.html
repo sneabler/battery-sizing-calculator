@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>UPS Battery Sizing Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Barlow:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #1b1f2e;
+  --surface: #232840;
+  --card:    #2a3050;
+  --border:  #3a4060;
+  --border2: #4a5278;
+  --text:    #dce3f5;
+  --muted:   #7a85aa;
+  --dim:     #4a5278;
+  --accent:  #4fc3f7;
+  --accent2: #81d4fa;
+  --green:   #69f0ae;
+  --amber:   #ffd740;
+  --red:     #ff6b6b;
+  --purple:  #ce93d8;
+  --white:   #ffffff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;padding-bottom:70px}
+
+/* HEADER */
+header{background:linear-gradient(135deg,#151929 0%,#1f2640 100%);border-bottom:1px solid var(--border);padding:22px 24px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hdr-left h1{font-size:1.45rem;font-weight:800;letter-spacing:-0.02em;color:var(--white);line-height:1.1}
+.hdr-left h1 em{font-style:normal;color:var(--accent)}
+.hdr-left p{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.hdr-badge{background:rgba(79,195,247,0.1);border:1px solid rgba(79,195,247,0.3);border-radius:4px;padding:6px 12px;font-family:'IBM Plex Mono',monospace;font-size:0.63rem;color:var(--accent);letter-spacing:0.06em;text-align:center;line-height:1.6;white-space:nowrap;flex-shrink:0}
+
+/* PAGE */
+.page{max-width:800px;margin:0 auto;padding:20px 16px}
+
+/* SECTION LABEL */
+.sec-label{font-family:'IBM Plex Mono',monospace;font-size:0.59rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:11px;display:flex;align-items:center;gap:10px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:12px}
+
+/* GRIDS — responsive, never crunch on iPad */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+/* Battery config: 2 cols + 1 col on its own row to give cells room */
+.batt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.batt-grid .full{grid-column:1/-1}
+
+/* FIELD */
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:0.7rem;font-weight:600;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+.field .hint{font-size:0.65rem;color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0;margin-top:-2px}
+
+/* INPUT WRAPPER */
+.iw{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--border2);border-radius:7px;overflow:hidden;transition:border-color 0.15s,box-shadow 0.15s}
+.iw:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,195,247,0.15)}
+.iw input,.iw select{flex:1;border:none;background:transparent;font-family:'IBM Plex Mono',monospace;font-size:1.1rem;font-weight:500;color:var(--white);padding:11px 12px;outline:none;min-width:0;-webkit-appearance:none;width:100%}
+.iw input[type=number]::-webkit-inner-spin-button,.iw input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+.iw-unit{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;color:var(--muted);background:rgba(255,255,255,0.04);border-left:1px solid var(--border);padding:0 11px;display:flex;align-items:center;white-space:nowrap;flex-shrink:0}
+
+/* LOAD MODE TOGGLE */
+.load-mode-toggle{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:3px;gap:3px;margin-bottom:12px}
+.lmt-btn{flex:1;padding:7px 10px;border:none;border-radius:5px;background:transparent;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:0.72rem;cursor:pointer;transition:all 0.15s;text-align:center}
+.lmt-btn.on{background:var(--card);color:var(--accent);border:1px solid var(--border2)}
+
+/* PF ROW — hidden in kW mode */
+.pf-row{transition:opacity 0.2s}
+.pf-row.hidden{opacity:0.35;pointer-events:none}
+
+/* CHECKBOX */
+.cb-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 15px;cursor:pointer;transition:border-color 0.15s;user-select:none;-webkit-user-select:none;margin-bottom:12px}
+.cb-row input[type=checkbox]{display:none}
+.cb-box{width:22px;height:22px;border:2px solid var(--border2);border-radius:5px;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.cb-check{font-size:0.75rem;color:var(--bg);font-weight:800;display:none}
+.cb-box.on{background:var(--accent);border-color:var(--accent)}
+.cb-box.on .cb-check{display:block}
+.cb-text strong{display:block;font-size:0.87rem;font-weight:600;color:var(--text)}
+.cb-text span{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--muted)}
+
+/* RESULTS */
+.results-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.results-header{background:rgba(79,195,247,0.08);border-bottom:1px solid var(--border);padding:11px 20px;display:flex;align-items:center;justify-content:space-between}
+.results-header span{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--accent)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:background 0.3s}
+.live-dot.on{background:var(--green);box-shadow:0 0 8px rgba(105,240,174,0.5);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.result-row{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);gap:12px}
+.result-row:last-child{border-bottom:none}
+.result-row.hl{background:rgba(79,195,247,0.06)}
+.result-row.eolrow{background:rgba(255,215,64,0.05)}
+.rr-name{font-size:0.88rem;font-weight:500;color:var(--text)}
+.rr-formula{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--dim);margin-top:3px}
+.rr-val{font-family:'IBM Plex Mono',monospace;font-size:1.15rem;font-weight:600;color:var(--muted);text-align:right;min-width:130px;transition:color 0.3s}
+.rr-val.wh{color:var(--white)}.rr-val.ac{color:var(--accent)}.rr-val.gr{color:var(--green)}.rr-val.am{color:var(--amber)}.rr-val.na{color:var(--dim);font-size:0.85rem}
+
+/* FORMULA TRACE */
+.ftrace{background:#111624;border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;line-height:1.9;color:var(--muted);margin-bottom:12px;display:none}
+.ftrace.show{display:block}
+.fc{color:#3a4a6a}.fv{color:var(--accent2);font-weight:500}.fr{color:var(--white);font-weight:600;font-size:0.78rem}.fe{color:var(--amber);font-weight:600}
+
+/* TOGGLE PILL */
+.toggle-pill{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;margin-bottom:12px}
+.tpill-btn{padding:7px 15px;border:none;border-radius:6px;background:transparent;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:0.71rem;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.tpill-btn.on{background:var(--card);color:var(--accent);border:1px solid var(--border2)}
+
+/* INTERP CARD */
+.interp-card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.interp-hdr{background:rgba(105,240,174,0.07);border-bottom:1px solid var(--border);padding:12px 20px}
+.interp-hdr-title{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--green)}
+.interp-hdr-sub{font-size:0.74rem;color:var(--muted);margin-top:4px}
+.interp-body{padding:18px 20px}
+
+/* DATASHEET TABLE */
+.ds-table{width:100%;border-collapse:collapse;margin-bottom:12px}
+.ds-table th{font-family:'IBM Plex Mono',monospace;font-size:0.59rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:0 7px 9px;text-align:left;border-bottom:1px solid var(--border)}
+.ds-table td{padding:6px 7px;vertical-align:middle}
+.row-label{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;color:var(--muted);white-space:nowrap}
+.bdge{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.ba{background:var(--accent)}.bb{background:var(--amber)}.by{background:var(--green)}
+
+.dsi{background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:0.92rem;font-weight:500;color:var(--white);padding:9px 8px;width:100%;outline:none;-webkit-appearance:none;transition:border-color 0.15s,box-shadow 0.15s;text-align:center}
+.dsi:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,195,247,0.15)}
+.dsi[type=number]::-webkit-inner-spin-button,.dsi[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+.dsi.ro{background:rgba(79,195,247,0.06);border-color:rgba(79,195,247,0.25);color:var(--accent)}
+.time-pair{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.time-sub{font-family:'IBM Plex Mono',monospace;font-size:0.57rem;color:var(--dim);text-align:center;margin-top:3px}
+
+/* W/BLOCK CONVERTER */
+.wblock-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.wblock-label{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;color:var(--muted);white-space:nowrap}
+.wblock-input{background:var(--bg);border:1px solid var(--border2);border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:0.92rem;font-weight:500;color:var(--white);padding:7px 10px;width:80px;outline:none;-webkit-appearance:none;text-align:center;transition:border-color 0.15s}
+.wblock-input:focus{border-color:var(--accent)}
+.wblock-input[type=number]::-webkit-inner-spin-button,.wblock-input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+.wblock-result{font-family:'IBM Plex Mono',monospace;font-size:0.92rem;font-weight:600}
+
+/* METHOD TABS */
+.method-tabs{display:flex;gap:8px;margin-bottom:12px}
+.mtab{flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;text-align:center;transition:all 0.15s}
+.mtab.on{border-color:var(--green);background:rgba(105,240,174,0.07)}
+.mtab-title{font-size:0.8rem;font-weight:600;color:var(--muted)}
+.mtab.on .mtab-title{color:var(--green)}
+.mtab-sub{font-family:'IBM Plex Mono',monospace;font-size:0.59rem;color:var(--dim);margin-top:3px}
+.method-panel{display:none}.method-panel.show{display:block}
+
+/* PEUKERT */
+.peuk-info{background:rgba(206,147,216,0.06);border:1px solid rgba(206,147,216,0.2);border-radius:8px;padding:11px 13px;font-size:0.74rem;color:var(--muted);line-height:1.6;margin-bottom:12px}
+.peuk-info strong{color:var(--purple)}
+.peuk-val{font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--purple);font-weight:500}
+
+/* RESULT BOX */
+.interp-result{background:rgba(105,240,174,0.07);border:1px solid rgba(105,240,174,0.25);border-radius:8px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:4px}
+.ir-label{font-size:0.84rem;font-weight:600;color:var(--text)}
+.ir-sub{font-family:'IBM Plex Mono',monospace;font-size:0.61rem;color:var(--muted);margin-top:4px}
+.ir-val{font-family:'IBM Plex Mono',monospace;font-size:1.85rem;font-weight:600;color:var(--muted);text-align:right;white-space:nowrap;transition:color 0.3s}
+.ir-val.ready{color:var(--green)}.ir-val.extrap{color:var(--amber)}
+
+.itrace{background:#111624;border:1px solid var(--border);border-radius:6px;padding:13px 15px;font-family:'IBM Plex Mono',monospace;font-size:0.69rem;line-height:1.9;color:var(--muted);margin-top:11px;display:none}
+.itrace.show{display:block}
+
+/* WARN / INFO */
+.warn{background:rgba(255,107,107,0.07);border:1px solid rgba(255,107,107,0.25);border-radius:8px;padding:10px 13px;font-size:0.76rem;color:var(--red);line-height:1.5;margin-top:9px;display:none}
+.warn.show{display:block}
+.caution{background:rgba(255,215,64,0.07);border:1px solid rgba(255,215,64,0.25);border-radius:8px;padding:10px 13px;font-size:0.76rem;color:var(--amber);line-height:1.5;margin-top:9px;display:none}
+.caution.show{display:block}
+.info-box{background:rgba(79,195,247,0.05);border:1px solid rgba(79,195,247,0.18);border-radius:8px;padding:13px 15px;font-size:0.78rem;color:var(--muted);line-height:1.6;margin-bottom:12px}
+.info-box strong{color:var(--accent)}
+
+/* SUMMARY CHIP ROW */
+.summary-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.schip{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted);flex:1;min-width:120px;text-align:center}
+.schip .sc-val{font-size:1rem;font-weight:600;color:var(--white);display:block;margin-top:2px}
+.schip .sc-val.gr{color:var(--green)}.schip .sc-val.am{color:var(--amber)}.schip .sc-val.ac{color:var(--accent)}
+
+/* BUTTON */
+.btn-row{display:flex;gap:10px;margin-top:4px}
+.btn{flex:1;padding:13px;border-radius:8px;border:none;font-family:'Barlow',sans-serif;font-size:0.87rem;font-weight:700;letter-spacing:0.04em;cursor:pointer;transition:all 0.15s}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--muted)}
+.btn-ghost:active{border-color:var(--text);color:var(--text)}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr}
+  .batt-grid{grid-template-columns:1fr 1fr}
+  .rr-val{min-width:80px;font-size:0.95rem}
+  header{flex-direction:column;align-items:flex-start}
+  .ir-val{font-size:1.3rem}
+  .method-tabs{flex-direction:column}
+  .summary-chips .schip{min-width:100px}
+}
+@media(max-width:380px){
+  .g2,.g3,.batt-grid{grid-template-columns:1fr}
+  .batt-grid .full{grid-column:auto}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-left">
+    <h1>UPS Battery <em>Sizing</em></h1>
+    <p>Manufacturer-agnostic · W/cell method</p>
+  </div>
+  <div class="hdr-badge">Output: W/cell<br>look up any datasheet</div>
+</header>
+
+<div class="page">
+
+  <!-- ── 1. AC LOAD ── -->
+  <div class="sec-label">AC Load</div>
+  <div class="card" style="margin-bottom:12px">
+
+    <!-- Input mode toggle: kVA or kW -->
+    <div style="margin-bottom:12px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:7px">Input mode</div>
+      <div class="load-mode-toggle">
+        <button class="lmt-btn on" id="mode_kva" onclick="setLoadMode('kva')">kVA (apparent)</button>
+        <button class="lmt-btn"    id="mode_kw"  onclick="setLoadMode('kw')">kW (active)</button>
+      </div>
+    </div>
+
+    <div class="g2">
+      <!-- Load value -->
+      <div class="field" id="load_field">
+        <label id="load_label">Load</label>
+        <div class="hint" id="load_hint">UPS output apparent power</div>
+        <div class="iw">
+          <input type="number" id="load_val" placeholder="e.g. 100" min="0" step="0.1" oninput="calc()">
+          <span class="iw-unit" id="load_unit">kVA</span>
+        </div>
+      </div>
+
+      <!-- Power factor — hidden in kW mode -->
+      <div class="field pf-row" id="pf_field">
+        <label>Output Power Factor</label>
+        <div class="hint">Typically 0.8 or 1.0</div>
+        <div class="iw">
+          <input type="number" id="pf" placeholder="e.g. 0.8" min="0.1" max="1" step="0.01" oninput="calc()">
+          <span class="iw-unit">p.f.</span>
+        </div>
+      </div>
+
+      <!-- Inverter efficiency — full width in kW mode -->
+      <div class="field" id="eff_field">
+        <label>Inverter Efficiency</label>
+        <div class="hint">DC→AC conversion efficiency</div>
+        <div class="iw">
+          <input type="number" id="eff" placeholder="e.g. 0.92" min="0.1" max="1" step="0.01" oninput="calc()">
+          <span class="iw-unit">η</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- kW mode info -->
+    <div id="kw_note" style="display:none;margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--dim);padding:8px 10px;background:rgba(255,215,64,0.05);border:1px solid rgba(255,215,64,0.15);border-radius:6px">
+      kW mode: DC power = Load kW ÷ η &nbsp;(power factor not required)
+    </div>
+  </div>
+
+  <!-- ── 2. BATTERY CONFIGURATION ── -->
+  <div class="sec-label">Battery Configuration</div>
+  <div class="card" style="margin-bottom:12px">
+    <!-- 2 columns: batteries per string | number of strings -->
+    <!-- cells per battery gets full width so it never squashes -->
+    <div class="batt-grid">
+      <div class="field">
+        <label>Batteries per String</label>
+        <div class="hint">Series batteries in one string</div>
+        <div class="iw"><input type="number" id="batt_per_str" placeholder="e.g. 18" min="1" step="1" oninput="calc()"><span class="iw-unit">batt.</span></div>
+      </div>
+      <div class="field">
+        <label>Number of Strings</label>
+        <div class="hint">Parallel strings</div>
+        <div class="iw"><input type="number" id="num_strings" placeholder="e.g. 2" min="1" step="1" oninput="calc()"><span class="iw-unit">strings</span></div>
+      </div>
+      <!-- Full-width row for cells per battery -->
+      <div class="field full">
+        <label>Cells per Battery</label>
+        <div class="hint">e.g. 6 cells for a 12V battery &nbsp;·&nbsp; 3 cells for 6V &nbsp;·&nbsp; 1 cell for a 2V monobloc</div>
+        <div class="iw"><input type="number" id="cells_per_batt" placeholder="e.g. 6" min="1" step="1" oninput="calc()"><span class="iw-unit">cells / battery</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. EOL ── -->
+  <div class="sec-label">End of Life Adjustment</div>
+  <label class="cb-row" id="eolLabel">
+    <input type="checkbox" id="eol_cb" onchange="calc()">
+    <div class="cb-box" id="eolBox"><span class="cb-check">✓</span></div>
+    <div class="cb-text">
+      <strong>Apply End of Life coefficient (×1.25)</strong>
+      <span>Accounts for ~20% capacity loss at end of battery service life</span>
+    </div>
+  </label>
+
+  <!-- FORMULA TRACE -->
+  <div class="ftrace" id="formulaTrace"></div>
+
+  <!-- ── 4. RESULTS ── -->
+  <div class="sec-label">Results</div>
+
+  <!-- Quick-glance summary chips -->
+  <div class="summary-chips" id="summaryChips" style="display:none">
+    <div class="schip">DC Power<span class="sc-val ac" id="chip_dc">—</span></div>
+    <div class="schip">W / Battery<span class="sc-val" id="chip_wpb">—</span></div>
+    <div class="schip">W / Cell (new)<span class="sc-val gr" id="chip_wpc">—</span></div>
+    <div class="schip" id="chip_eol_wrap" style="display:none">W / Cell (EOL)<span class="sc-val am" id="chip_eol">—</span></div>
+  </div>
+
+  <div class="results-card">
+    <div class="results-header"><span>Calculated Values</span><div class="live-dot" id="liveDot"></div></div>
+    <div>
+      <div class="result-row">
+        <div><div class="rr-name">DC Power Required</div><div class="rr-formula" id="dc_formula">kW = kVA × p.f. ÷ η</div></div>
+        <div class="rr-val" id="out_dc_kw">—</div>
+      </div>
+      <div class="result-row hl">
+        <div><div class="rr-name">Watts per Battery</div><div class="rr-formula">(DC kW × 1000) ÷ (batteries/string × strings)</div></div>
+        <div class="rr-val" id="out_w_batt">—</div>
+      </div>
+      <div class="result-row hl">
+        <div><div class="rr-name">Watts per Cell <span style="font-size:0.68rem;color:var(--muted);font-weight:400">(When New)</span></div><div class="rr-formula">W/battery ÷ cells/battery</div></div>
+        <div class="rr-val gr" id="out_w_cell">—</div>
+      </div>
+      <div class="result-row eolrow" id="eolResultRow">
+        <div><div class="rr-name">Watts per Cell <span style="font-size:0.68rem;color:var(--amber);font-weight:400">(End of Life ×1.25)</span></div><div class="rr-formula">W/cell × 1.25</div></div>
+        <div class="rr-val" id="out_w_cell_eol">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 5. INTERPOLATION ── -->
+  <div class="sec-label">Autonomy — Datasheet Interpolation</div>
+  <div class="interp-card">
+    <div class="interp-hdr">
+      <div class="interp-hdr-title">Datasheet lookup &amp; interpolation</div>
+      <div class="interp-hdr-sub">Enter two rows from your battery's constant-power discharge table that bracket your W/cell (or W/block) value</div>
+    </div>
+    <div class="interp-body">
+
+      <!-- DATASHEET UNIT TOGGLE -->
+      <div class="sec-label" style="margin-bottom:8px">Datasheet unit</div>
+      <div class="toggle-pill">
+        <button class="tpill-btn on" id="unitWcell"  onclick="setDsUnit('cell')">W / cell</button>
+        <button class="tpill-btn"    id="unitWblock" onclick="setDsUnit('block')">W / block</button>
+      </div>
+
+      <!-- W/BLOCK SETTINGS (hidden in cell mode) -->
+      <div id="wblockConverter" style="display:none">
+        <div class="wblock-box">
+          <span class="wblock-label">Cells per block:</span>
+          <input class="wblock-input" type="number" id="cells_per_block" value="6" min="1" step="1" oninput="interpolate()">
+          <span class="wblock-label" style="margin-left:4px">Your W/block →</span>
+          <span class="wblock-result" style="color:var(--green)" id="wblock_new_display">—</span>
+          <span class="wblock-label">(new) &nbsp;/&nbsp;</span>
+          <span class="wblock-result" style="color:var(--amber)" id="wblock_eol_display">—</span>
+          <span class="wblock-label">(EOL)</span>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:0.64rem;color:var(--dim);margin-bottom:10px">
+          Enter W/block values from the datasheet — converted to W/cell internally using cells per block above.
+        </div>
+      </div>
+
+      <!-- DATASHEET TABLE -->
+      <table class="ds-table">
+        <thead>
+          <tr>
+            <th style="width:80px">Row</th>
+            <th id="th_wunit">W / cell</th>
+            <th colspan="2">Autonomy time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-label"><span class="bdge ba"></span>Above</td>
+            <td><input class="dsi" type="number" id="ds_w_above" placeholder="higher W" min="0" step="0.1" oninput="interpolate()"></td>
+            <td><div class="time-pair">
+              <div><input class="dsi" type="number" id="ds_min_above" placeholder="min" min="0" step="1" oninput="interpolate()"><div class="time-sub">min</div></div>
+              <div><input class="dsi" type="number" id="ds_sec_above" placeholder="sec" min="0" max="59" step="1" oninput="interpolate()"><div class="time-sub">sec</div></div>
+            </div></td>
+          </tr>
+          <tr style="border-top:1px dashed var(--border);border-bottom:1px dashed var(--border)">
+            <td class="row-label"><span class="bdge by"></span>Your value</td>
+            <td><input class="dsi ro" type="number" id="interp_wpc" placeholder="—" readonly tabindex="-1"></td>
+            <td colspan="2" style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:0.64rem;color:var(--dim)">↑ interpolated ↓</td>
+          </tr>
+          <tr>
+            <td class="row-label"><span class="bdge bb"></span>Below</td>
+            <td><input class="dsi" type="number" id="ds_w_below" placeholder="lower W" min="0" step="0.1" oninput="interpolate()"></td>
+            <td><div class="time-pair">
+              <div><input class="dsi" type="number" id="ds_min_below" placeholder="min" min="0" step="1" oninput="interpolate()"><div class="time-sub">min</div></div>
+              <div><input class="dsi" type="number" id="ds_sec_below" placeholder="sec" min="0" max="59" step="1" oninput="interpolate()"><div class="time-sub">sec</div></div>
+            </div></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- USE EOL TOGGLE -->
+      <label class="cb-row" style="margin-bottom:14px;padding:10px 13px">
+        <input type="checkbox" id="interp_eol_cb" onchange="interpolate()">
+        <div class="cb-box" id="interpEolBox"><span class="cb-check">✓</span></div>
+        <div class="cb-text">
+          <strong style="font-size:0.82rem">Use EOL W/cell for interpolation</strong>
+          <span>Uses the ×1.25 end-of-life figure instead of when-new W/cell</span>
+        </div>
+      </label>
+
+      <!-- EXTRAPOLATION METHOD -->
+      <div class="sec-label" style="margin-bottom:9px">Extrapolation method (if beyond table range)</div>
+      <div class="method-tabs">
+        <div class="mtab on" id="tab_linear" onclick="setMethod('linear')">
+          <div class="mtab-title">Linear extrapolation</div>
+          <div class="mtab-sub">Extends the slope — with warning</div>
+        </div>
+        <div class="mtab" id="tab_peukert" onclick="setMethod('peukert')">
+          <div class="mtab-title">Peukert equation</div>
+          <div class="mtab-sub">Non-linear curve projection</div>
+        </div>
+      </div>
+
+      <!-- PEUKERT PANEL -->
+      <div class="method-panel" id="panel_peukert">
+        <div class="peuk-info">
+          <strong>Peukert equation:</strong> Models non-linear discharge behaviour. The Peukert constant <strong>n</strong> is estimated automatically from your two datasheet rows. Override with the manufacturer's value if known. Typical VRLA/AGM range: <span class="peuk-val">1.05 – 1.30</span>
+        </div>
+        <div class="g2" style="margin-bottom:12px">
+          <div class="field">
+            <label>Peukert Constant (n)</label>
+            <div class="hint">Auto-estimated, or enter manually</div>
+            <div class="iw"><input type="number" id="peukert_n" placeholder="auto" min="1" max="2" step="0.01" oninput="interpolate()"><span class="iw-unit">n</span></div>
+          </div>
+          <div class="field">
+            <label>Battery Capacity (C10)</label>
+            <div class="hint">Rated Ah at 10-hour rate</div>
+            <div class="iw"><input type="number" id="peukert_c" placeholder="e.g. 100" min="1" step="1" oninput="interpolate()"><span class="iw-unit">Ah</span></div>
+          </div>
+        </div>
+        <div id="peukert_est_display" style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--purple);margin-bottom:12px;padding:8px 11px;background:rgba(206,147,216,0.05);border:1px solid rgba(206,147,216,0.15);border-radius:6px;display:none"></div>
+      </div>
+
+      <!-- RESULT -->
+      <div class="interp-result">
+        <div>
+          <div class="ir-label">Estimated Autonomy</div>
+          <div class="ir-sub" id="interp_sub">Complete sizing calculation, then enter datasheet rows above</div>
+        </div>
+        <div class="ir-val" id="interp_result">—</div>
+      </div>
+
+      <div class="itrace" id="interpTrace"></div>
+      <div class="warn"    id="interpWarn"></div>
+      <div class="caution" id="interpCaution"></div>
+
+    </div>
+  </div>
+
+  <div class="info-box">
+    <strong>W/block datasheets:</strong> Switch to "W/block" above, set cells per block, and enter datasheet values directly. &nbsp;|&nbsp;
+    <strong>Beyond table range:</strong> Choose Linear for a quick estimate or Peukert for a more accurate projection beyond published data.
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="resetAll()">Clear All Fields</button>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let wpc_new  = null, wpc_eol = null;
+let dsUnit   = 'cell';
+let method   = 'linear';
+let loadMode = 'kva';   // 'kva' or 'kw'
+
+// ── HELPERS ────────────────────────────────────────────────────────────────────
+const toMins = (m,s) => (parseFloat(m)||0) + (parseFloat(s)||0)/60;
+
+function fmtMins(t) {
+  if (isNaN(t)||t<=0) return '—';
+  const h = Math.floor(t/60);
+  const m = Math.floor(t%60);
+  const s = Math.round((t - Math.floor(t))*60);
+  if (h>0) return s>0 ? `${h}h ${m}m ${s}s` : (m>0 ? `${h}h ${m}m` : `${h}h`);
+  return s>0 ? `${m} min ${s} sec` : `${m} min`;
+}
+
+function setVal(id,txt,cls){
+  const el=document.getElementById(id);
+  el.textContent=txt;
+  el.className='rr-val '+(cls||'');
+}
+
+function syncCb(boxId,checked){
+  const b=document.getElementById(boxId);
+  checked?b.classList.add('on'):b.classList.remove('on');
+}
+
+// ── LOAD MODE TOGGLE ───────────────────────────────────────────────────────────
+function setLoadMode(m) {
+  loadMode = m;
+  document.getElementById('mode_kva').className = 'lmt-btn'+(m==='kva'?' on':'');
+  document.getElementById('mode_kw').className  = 'lmt-btn'+(m==='kw' ?' on':'');
+
+  const pfRow  = document.getElementById('pf_field');
+  const kwNote = document.getElementById('kw_note');
+  const lbl    = document.getElementById('load_label');
+  const hint   = document.getElementById('load_hint');
+  const unit   = document.getElementById('load_unit');
+
+  if (m==='kw') {
+    pfRow.classList.add('hidden');
+    kwNote.style.display='block';
+    lbl.textContent='Load';
+    hint.textContent='UPS output active power (already as kW)';
+    unit.textContent='kW';
+    document.getElementById('dc_formula').textContent='DC kW = Load kW ÷ η';
+  } else {
+    pfRow.classList.remove('hidden');
+    kwNote.style.display='none';
+    lbl.textContent='Load';
+    hint.textContent='UPS output apparent power';
+    unit.textContent='kVA';
+    document.getElementById('dc_formula').textContent='kW = kVA × p.f. ÷ η';
+  }
+  calc();
+}
+
+// ── DS UNIT TOGGLE ─────────────────────────────────────────────────────────────
+function setDsUnit(u) {
+  dsUnit=u;
+  document.getElementById('unitWcell').className  = 'tpill-btn'+(u==='cell' ?' on':'');
+  document.getElementById('unitWblock').className = 'tpill-btn'+(u==='block'?' on':'');
+  document.getElementById('wblockConverter').style.display = u==='block'?'block':'none';
+  document.getElementById('th_wunit').textContent = u==='block'?'W / block':'W / cell';
+  updateInterpWpc();
+  interpolate();
+}
+
+function setMethod(m) {
+  method=m;
+  document.getElementById('tab_linear').className  = 'mtab'+(m==='linear' ?' on':'');
+  document.getElementById('tab_peukert').className = 'mtab'+(m==='peukert'?' on':'');
+  document.getElementById('panel_peukert').className = 'method-panel'+(m==='peukert'?' show':'');
+  interpolate();
+}
+
+// ── MAIN CALCULATION ───────────────────────────────────────────────────────────
+function calc() {
+  const loadVal = parseFloat(document.getElementById('load_val').value);
+  const pf      = parseFloat(document.getElementById('pf').value);
+  const eff     = parseFloat(document.getElementById('eff').value);
+  const bps     = parseFloat(document.getElementById('batt_per_str').value);
+  const ns      = parseFloat(document.getElementById('num_strings').value);
+  const cpb     = parseFloat(document.getElementById('cells_per_batt').value);
+  const eol     = document.getElementById('eol_cb').checked;
+
+  syncCb('eolBox',eol);
+
+  const dot    = document.getElementById('liveDot');
+  const ftrace = document.getElementById('formulaTrace');
+
+  const hasLoad = !isNaN(loadVal)&&loadVal>0 && !isNaN(eff)&&eff>0 &&
+                  (loadMode==='kw' || (!isNaN(pf)&&pf>0));
+  const hasBatt = !isNaN(bps)&&bps>0 && !isNaN(ns)&&ns>0 && !isNaN(cpb)&&cpb>0;
+
+  function clear(){
+    ['out_dc_kw','out_w_batt','out_w_cell','out_w_cell_eol'].forEach(id=>setVal(id,'—',''));
+    dot.className='live-dot'; ftrace.classList.remove('show');
+    wpc_new=null; wpc_eol=null;
+    document.getElementById('summaryChips').style.display='none';
+    updateInterpWpc();
+  }
+
+  if (!hasLoad){ clear(); return; }
+
+  // DC power calc
+  const dc_kw = loadMode==='kw'
+    ? loadVal / eff
+    : loadVal * pf / eff;
+
+  setVal('out_dc_kw', dc_kw.toFixed(2)+' kW','wh');
+
+  if (!hasBatt){ 
+    ['out_w_batt','out_w_cell','out_w_cell_eol'].forEach(id=>setVal(id,'—',''));
+    dot.className='live-dot'; ftrace.classList.remove('show');
+    wpc_new=null; wpc_eol=null;
+    document.getElementById('summaryChips').style.display='none';
+    updateInterpWpc(); return;
+  }
+
+  const wpb   = (dc_kw*1000)/(bps*ns);
+  const wpc   = wpb/cpb;
+  const wpc_e = wpc*1.25;
+  wpc_new=wpc; wpc_eol=wpc_e;
+
+  setVal('out_w_batt',  wpb.toFixed(2)+' W','ac');
+  setVal('out_w_cell',  wpc.toFixed(2)+' W','gr');
+  if(eol){
+    setVal('out_w_cell_eol',wpc_e.toFixed(2)+' W','am');
+    document.getElementById('eolResultRow').style.opacity='1';
+  } else {
+    setVal('out_w_cell_eol','N/A','na');
+    document.getElementById('eolResultRow').style.opacity='0.45';
+  }
+  dot.className='live-dot on';
+
+  // Summary chips
+  const chips = document.getElementById('summaryChips');
+  chips.style.display='flex';
+  document.getElementById('chip_dc').textContent  = dc_kw.toFixed(2)+' kW';
+  document.getElementById('chip_wpb').textContent = wpb.toFixed(2)+' W';
+  document.getElementById('chip_wpc').textContent = wpc.toFixed(2)+' W';
+  const eolChip = document.getElementById('chip_eol_wrap');
+  if(eol){
+    eolChip.style.display='block';
+    document.getElementById('chip_eol').textContent = wpc_e.toFixed(2)+' W';
+  } else {
+    eolChip.style.display='none';
+  }
+
+  // Formula trace
+  const traceLine = loadMode==='kw'
+    ? `DC power   = <span class="fv">${loadVal}</span> ÷ <span class="fv">${eff}</span> = <span class="fr">${dc_kw.toFixed(3)} kW</span>`
+    : `DC power   = <span class="fv">${loadVal}</span> × <span class="fv">${pf}</span> ÷ <span class="fv">${eff}</span> = <span class="fr">${dc_kw.toFixed(3)} kW</span>`;
+
+  ftrace.innerHTML =
+    `<span class="fc">// ── Calculation Trace ────────────────────────</span>\n`+
+    traceLine+`\n`+
+    `W/battery  = (<span class="fv">${dc_kw.toFixed(3)}</span> × 1000) ÷ (<span class="fv">${bps}</span> × <span class="fv">${ns}</span>) = <span class="fr">${wpb.toFixed(2)} W</span>\n`+
+    `W/cell     = <span class="fv">${wpb.toFixed(2)}</span> ÷ <span class="fv">${cpb}</span> = <span class="fr">${wpc.toFixed(2)} W</span>`+
+    (eol?`\nEOL W/cell = <span class="fv">${wpc.toFixed(2)}</span> × 1.25 = <span class="fe">${wpc_e.toFixed(2)} W</span>`:`\n<span class="fc">// EOL not applied</span>`);
+  ftrace.classList.add('show');
+
+  updateInterpWpc();
+  interpolate();
+}
+
+// ── SYNC WPC INTO INTERP TABLE ─────────────────────────────────────────────────
+function updateInterpWpc() {
+  const useEol  = document.getElementById('interp_eol_cb').checked;
+  const wpc_raw = useEol ? wpc_eol : wpc_new;
+  const cpblk   = parseFloat(document.getElementById('cells_per_block').value)||1;
+  const displayVal = wpc_raw!==null ? (dsUnit==='block' ? wpc_raw*cpblk : wpc_raw) : null;
+
+  const el = document.getElementById('interp_wpc');
+  el.value = displayVal!==null ? displayVal.toFixed(2) : '';
+
+  if(wpc_new!==null){
+    document.getElementById('wblock_new_display').textContent = (wpc_new*cpblk).toFixed(2)+' W';
+    document.getElementById('wblock_eol_display').textContent = wpc_eol!==null ? (wpc_eol*cpblk).toFixed(2)+' W' : '—';
+  } else {
+    document.getElementById('wblock_new_display').textContent='—';
+    document.getElementById('wblock_eol_display').textContent='—';
+  }
+}
+
+// ── INTERPOLATION / EXTRAPOLATION ──────────────────────────────────────────────
+function interpolate() {
+  const useEol  = document.getElementById('interp_eol_cb').checked;
+  syncCb('interpEolBox',useEol);
+  updateInterpWpc();
+
+  const wpc_raw   = useEol ? wpc_eol : wpc_new;
+  const cpblk     = parseFloat(document.getElementById('cells_per_block').value)||1;
+  const w_above_r = parseFloat(document.getElementById('ds_w_above').value);
+  const w_below_r = parseFloat(document.getElementById('ds_w_below').value);
+  const t_above   = toMins(document.getElementById('ds_min_above').value, document.getElementById('ds_sec_above').value);
+  const t_below   = toMins(document.getElementById('ds_min_below').value, document.getElementById('ds_sec_below').value);
+
+  const resEl   = document.getElementById('interp_result');
+  const subEl   = document.getElementById('interp_sub');
+  const traceEl = document.getElementById('interpTrace');
+  const warnEl  = document.getElementById('interpWarn');
+  const cautEl  = document.getElementById('interpCaution');
+
+  warnEl.classList.remove('show');
+  cautEl.classList.remove('show');
+  traceEl.classList.remove('show');
+
+  if(wpc_raw===null){
+    resEl.textContent='—'; resEl.className='ir-val';
+    subEl.textContent='Complete the sizing calculation above first'; return;
+  }
+  const hasA = !isNaN(w_above_r)&&w_above_r>0&&t_above>0;
+  const hasB = !isNaN(w_below_r)&&w_below_r>0&&t_below>0;
+  if(!hasA||!hasB){
+    resEl.textContent='—'; resEl.className='ir-val';
+    subEl.textContent='Enter both datasheet rows to interpolate'; return;
+  }
+  if(w_above_r<=w_below_r){
+    warnEl.textContent='Row above must have a higher W value than row below — higher power = shorter runtime.';
+    warnEl.classList.add('show'); resEl.textContent='—'; resEl.className='ir-val'; return;
+  }
+  if(t_above>=t_below){
+    warnEl.textContent='Row above (higher W) should have less autonomy than row below. Check your values.';
+    warnEl.classList.add('show'); resEl.textContent='—'; resEl.className='ir-val'; return;
+  }
+
+  // Convert block→cell for internal maths
+  const w_above  = dsUnit==='block' ? w_above_r/cpblk : w_above_r;
+  const w_below  = dsUnit==='block' ? w_below_r/cpblk : w_below_r;
+  const wpc_cell = wpc_raw;
+
+  const isWithin = wpc_cell<=w_above && wpc_cell>=w_below;
+  const isAboveRange = wpc_cell>w_above;
+  const isBelowRange = wpc_cell<w_below;
+
+  let t_result=null, traceHtml='', isExtrap=false;
+  const unitLbl = dsUnit==='block'?'W/block':'W/cell';
+
+  if(method==='linear'){
+    const slope = (t_below-t_above)/(w_above-w_below);
+    t_result = t_above + (w_above-wpc_cell)*slope;
+
+    traceHtml=
+      `<span class="fc">// Straight-line interpolation${!isWithin?' (extrapolation)':''}</span>\n`+
+      (dsUnit==='block'?`<span class="fc">// W/block ÷ ${cpblk} cells/block → W/cell</span>\n`:'')+
+      `Row above  ${w_above_r} ${unitLbl}  →  ${fmtMins(t_above)}  (${t_above.toFixed(4)} min)\n`+
+      `Target     <span class="fv">${(dsUnit==='block'?wpc_cell*cpblk:wpc_cell).toFixed(2)} ${unitLbl}</span>\n`+
+      `Row below  ${w_below_r} ${unitLbl}  →  ${fmtMins(t_below)}  (${t_below.toFixed(4)} min)\n`+
+      `<span class="fc">// t = t₁ + (w₁ − wpc) × (t₂ − t₁) / (w₁ − w₂)</span>\n`+
+      `t = ${t_above.toFixed(4)} + (${w_above.toFixed(2)} − ${wpc_cell.toFixed(2)}) × (${t_below.toFixed(4)} − ${t_above.toFixed(4)}) / (${w_above.toFixed(2)} − ${w_below.toFixed(2)})\n`+
+      `t = <span class="fr">${t_result.toFixed(4)} min  →  ${fmtMins(t_result)}</span>`;
+    isExtrap=!isWithin;
+
+  } else {
+    // Peukert
+    const n_est  = Math.log(t_below/t_above)/Math.log(w_above/w_below);
+    const n_man  = parseFloat(document.getElementById('peukert_n').value);
+    const n_valid= !isNaN(n_man)&&n_man>=1&&n_man<=2;
+    const n_use  = n_valid?n_man:n_est;
+
+    const estEl=document.getElementById('peukert_est_display');
+    if(!isNaN(n_est)&&isFinite(n_est)){
+      estEl.textContent=`Estimated n from datasheet rows: ${n_est.toFixed(4)}${n_valid?` (overridden: ${n_man.toFixed(4)})`:'  (using this)'}`;
+      estEl.style.display='block';
+    } else { estEl.style.display='none'; }
+
+    if(isNaN(n_est)||!isFinite(n_est)||n_est<1){
+      warnEl.textContent='Could not estimate Peukert constant — check datasheet row values or enter n manually.';
+      warnEl.classList.add('show'); resEl.textContent='—'; resEl.className='ir-val'; return;
+    }
+
+    t_result = t_above*Math.pow(w_above/wpc_cell, n_use);
+
+    traceHtml=
+      `<span class="fc">// Peukert: t₂ = t₁ × (P₁/P₂)ⁿ</span>\n`+
+      (dsUnit==='block'?`<span class="fc">// W/block ÷ ${cpblk} → W/cell (internal)</span>\n`:'')+
+      `Row above  ${w_above.toFixed(2)} W/cell  →  ${fmtMins(t_above)}\n`+
+      `Row below  ${w_below.toFixed(2)} W/cell  →  ${fmtMins(t_below)}\n`+
+      `n          <span class="fv">${n_use.toFixed(4)}</span>${n_valid?' (manual)':' (estimated)'}\n`+
+      `t = ${t_above.toFixed(4)} × (${w_above.toFixed(2)} / ${wpc_cell.toFixed(2)})^${n_use.toFixed(4)}\n`+
+      `t = <span class="fr">${t_result.toFixed(4)} min  →  ${fmtMins(t_result)}</span>`;
+    isExtrap=!isWithin;
+  }
+
+  // Warnings
+  if(isBelowRange){
+    cautEl.innerHTML = method==='linear'
+      ? `⚠ Your W/cell (<strong>${wpc_cell.toFixed(2)} W</strong>) is below the lowest datasheet row — <strong>linear extrapolation beyond published data</strong>. Discharge curves are non-linear at longer runtimes; consider Peukert for a better estimate.`
+      : `⚠ Your W/cell (<strong>${wpc_cell.toFixed(2)} W</strong>) is below the lowest datasheet row — <strong>Peukert projection beyond published data</strong>. Verify with manufacturer data where possible.`;
+    cautEl.classList.add('show');
+  }
+  if(isAboveRange){
+    cautEl.innerHTML=`⚠ Your W/cell (<strong>${wpc_cell.toFixed(2)} W</strong>) is above the highest datasheet row — extrapolating to shorter runtime than published. Consider a larger battery or additional strings.`;
+    cautEl.classList.add('show');
+  }
+
+  resEl.textContent=fmtMins(t_result);
+  resEl.className='ir-val'+(isExtrap?' extrap':' ready');
+  subEl.textContent=(useEol?'EOL W/cell':'When-new W/cell')+` · ${wpc_cell.toFixed(2)} W/cell`+(isExtrap?' · extrapolated':'');
+
+  traceEl.innerHTML=traceHtml;
+  traceEl.classList.add('show');
+}
+
+// ── RESET ──────────────────────────────────────────────────────────────────────
+function resetAll(){
+  ['load_val','pf','eff','batt_per_str','num_strings','cells_per_batt',
+   'ds_w_above','ds_min_above','ds_sec_above',
+   'ds_w_below','ds_min_below','ds_sec_below',
+   'peukert_n','peukert_c'].forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('eol_cb').checked=false;
+  document.getElementById('interp_eol_cb').checked=false;
+  document.getElementById('cells_per_block').value='6';
+  wpc_new=null; wpc_eol=null;
+  calc();
+}
+
+// Init
+calc();
+</script>
+</body>
+</html>
